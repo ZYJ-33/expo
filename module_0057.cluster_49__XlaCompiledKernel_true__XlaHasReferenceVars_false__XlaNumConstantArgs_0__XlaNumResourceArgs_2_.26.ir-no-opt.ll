@@ -1,0 +1,62 @@
+target datalayout = "e-i64:64-i128:128-v16:16-v32:32-n16:32:64"
+target triple = "nvptx64-nvidia-cuda"
+
+@0 = private unnamed_addr constant [4 x i8] c"\9B\E8!?"
+@1 = private unnamed_addr constant [4 x i8] c"\9B\E8\A1\BE"
+
+define void @fusion_2(ptr noalias align 16 dereferenceable(120) %arg0, ptr noalias align 16 dereferenceable(120) %arg1, ptr noalias align 128 dereferenceable(120) %arg2, ptr noalias align 128 dereferenceable(120) %arg3) {
+entry:
+  %0 = call i32 @llvm.nvvm.read.ptx.sreg.ctaid.x(), !range !2
+  %1 = call i32 @llvm.nvvm.read.ptx.sreg.tid.x(), !range !3
+  %2 = mul nuw nsw i32 %0, 30
+  %linear_index = add nuw nsw i32 %2, %1
+  %linear_index_in_range = icmp ult i32 %linear_index, 30
+  call void @llvm.assume(i1 %linear_index_in_range)
+  %3 = udiv i32 %linear_index, 1
+  %4 = icmp ult i32 %linear_index, 30
+  br i1 %4, label %fusion_2.in_bounds-true, label %fusion_2.in_bounds-after
+
+fusion_2.in_bounds-after:                         ; preds = %fusion_2.in_bounds-true, %entry
+  ret void
+
+fusion_2.in_bounds-true:                          ; preds = %entry
+  %region_0_12_constant_3 = load float, ptr @1, align 4
+  %5 = getelementptr inbounds float, ptr %arg0, i32 %linear_index
+  %6 = load float, ptr %5, align 4, !invariant.load !4
+  %region_0_12_constant_5 = load float, ptr @0, align 4
+  %multiply.7 = fmul float %6, %region_0_12_constant_5
+  %add.8 = fadd float %region_0_12_constant_3, %multiply.7
+  %7 = insertvalue { float, float } undef, float %add.8, 0
+  %8 = getelementptr inbounds float, ptr %arg1, i32 %linear_index
+  %9 = load float, ptr %8, align 4, !invariant.load !4
+  %multiply.9 = fmul float %region_0_12_constant_5, %9
+  %add.10 = fadd float %region_0_12_constant_3, %multiply.9
+  %10 = insertvalue { float, float } %7, float %add.10, 1
+  %11 = extractvalue { float, float } %10, 0
+  %12 = getelementptr inbounds float, ptr %arg2, i32 %linear_index
+  store float %11, ptr %12, align 4
+  %13 = extractvalue { float, float } %10, 1
+  %14 = getelementptr inbounds float, ptr %arg3, i32 %linear_index
+  store float %13, ptr %14, align 4
+  br label %fusion_2.in_bounds-after
+}
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare noundef i32 @llvm.nvvm.read.ptx.sreg.ctaid.x() #0
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare noundef i32 @llvm.nvvm.read.ptx.sreg.tid.x() #0
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite)
+declare void @llvm.assume(i1 noundef) #1
+
+attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #1 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite) }
+
+!nvvm.annotations = !{!0, !1}
+
+!0 = !{ptr @fusion_2, !"kernel", i32 1}
+!1 = !{ptr @fusion_2, !"reqntidx", i32 30}
+!2 = !{i32 0, i32 1}
+!3 = !{i32 0, i32 30}
+!4 = !{}
